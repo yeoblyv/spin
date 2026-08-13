@@ -82,6 +82,9 @@ func registerProject(dir string, stdout io.Writer) {
 	if err != nil {
 		return
 	}
+	if err := r.SetDomain(entry.Name, entry.Name+"."+defaultTLD); err != nil {
+		return
+	}
 	if err := r.Save(path); err != nil {
 		return
 	}

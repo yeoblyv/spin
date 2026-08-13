@@ -5,10 +5,15 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/yeoblyv/spin/internal/platform"
 	reg "github.com/yeoblyv/spin/internal/registry"
 )
+
+// defaultTLD is the reserved top-level domain (RFC 2606) a newly added site
+// is assigned under when --domain is not given.
+const defaultTLD = "test"
 
 func init() {
 	registry = append(registry, command{
@@ -69,6 +74,7 @@ func runSiteAdd(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("site add", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	name := fs.String("name", "", "registry name for this project (defaults to the directory name)")
+	domain := fs.String("domain", "", "local domain for this project (defaults to <name>."+defaultTLD+")")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
 	}
@@ -90,12 +96,24 @@ func runSiteAdd(args []string, stdout, stderr io.Writer) int {
 		return exitError
 	}
 
+	resolvedDomain := *domain
+	if resolvedDomain == "" {
+		resolvedDomain = entry.Name + "." + defaultTLD
+	} else if strings.ContainsAny(resolvedDomain, " \t\n") {
+		fmt.Fprintf(stderr, "spin: site: domain %q must not contain whitespace\n", resolvedDomain)
+		return exitError
+	}
+	if err := r.SetDomain(entry.Name, resolvedDomain); err != nil {
+		fmt.Fprintf(stderr, "spin: site: %v\n", err)
+		return exitError
+	}
+
 	if err := r.Save(regPath); err != nil {
 		fmt.Fprintf(stderr, "spin: site: %v\n", err)
 		return exitError
 	}
 
-	fmt.Fprintf(stdout, "registered %q at %s\n", entry.Name, entry.Path)
+	fmt.Fprintf(stdout, "registered %q at %s (domain: %s)\n", entry.Name, entry.Path, resolvedDomain)
 	return exitOK
 }
 
@@ -128,7 +146,11 @@ func runSiteList(args []string, stdout, stderr io.Writer) int {
 		if reg.Stale(e) {
 			status = "stale"
 		}
-		fmt.Fprintf(stdout, "%s %-20s %-8s %s\n", marker, e.Name, status, e.Path)
+		domain := e.Domain
+		if domain == "" {
+			domain = "-"
+		}
+		fmt.Fprintf(stdout, "%s %-20s %-8s %-20s %s\n", marker, e.Name, status, domain, e.Path)
 	}
 	return exitOK
 }
