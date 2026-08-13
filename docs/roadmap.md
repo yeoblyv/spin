@@ -225,9 +225,9 @@ Once concurrent multi-project support and drift detection land, `scripts/setup-n
 
 ## 10. Distribution & release engineering
 
-**Have.** `.github/workflows/ci.yml` (gofmt/`go vet`/`go test -race` on push/PR); `.github/workflows/release.yml` (cross-compiles darwin/linux/windows × amd64/arm64 from one runner on a `v*` tag push, embeds version/commit via `-ldflags`, verifies the linux/amd64 binary's own `--version` output against the tag, publishes SHA-256 checksums via `softprops/action-gh-release`); version is git-tag-only, `go.mod` carries no version field.
+**Have.** `.github/workflows/ci.yml` (gofmt/`go vet`/`go test -race` on `ubuntu-latest`/`macos-latest`/`windows-latest`, push/PR - see [§11](#11-cross-platform-compatibility)); version is git-tag-only, `go.mod` carries no version field. This section previously described `.github/workflows/release.yml` as already existing; it did not, on either count - see the [§12](#12-loose-ends) note this correction replaces.
 
-**Missing.** A public GitHub repository and a first tagged release to point the checksum-verified download flow at; the Spider-side installer that pulls a released `spin` binary on demand ([README](../README.md)'s stated model).
+**Missing.** `.github/workflows/release.yml` itself; a public GitHub repository and a first tagged release to point the checksum-verified download flow at; the Spider-side installer that pulls a released `spin` binary on demand ([README](../README.md)'s stated model).
 
 **Target.** A tagged `v0.1.0` (or first agreed version) published with checksummed binaries for every supported OS/architecture, and a working download-and-verify path from a fresh Spider project.
 
@@ -244,16 +244,17 @@ Once concurrent multi-project support and drift detection land, `scripts/setup-n
 
 ## 11. Cross-platform compatibility
 
-**Have.** CI cross-compiles all six OS/architecture combinations from one Linux runner (relying on Go's deterministic cross-compilation rather than a three-OS build matrix, per the toolchain exception this project follows); real runtime testing to date has only happened on macOS.
+**Have.** `.github/workflows/ci.yml` runs `gofmt -l .`, `go vet ./...`, and `go test ./... -race` on `ubuntu-latest`, `macos-latest`, and `windows-latest` (`fail-fast: false`, so one OS's failure doesn't hide another's) on every push to `main` and every pull request. Every OS-specific branch built so far - config directory ([§2](#2-project-registry)), hosts-file path ([§3](#3-local-domains)), web-server/PHP-FPM detection ([§4](#4-web-server-orchestration)–[§5](#5-php-runtime-management)) - already lives behind its own small internal package (`internal/platform`, `internal/webserver`, `internal/phpversion`) with the OS/tooling-specific parts injected, so the Windows and Linux code paths run in unit tests on every push even without a machine of that OS actually executing this session.
 
-**Missing.** Any real-machine verification on Linux and Windows of the orchestration features ([§3](#3-local-domains)–[§5](#5-php-runtime-management)) — these touch OS-specific mechanisms (`/etc/resolver`, `systemd-resolved`, Windows `hosts`, package managers) that cross-compilation alone cannot validate, since they only execute at runtime on their target OS.
+**Missing.** Real-machine verification of the orchestration features on actual Linux and Windows hardware/VMs - CI's Windows and Linux runners execute the unit-tested logic (including the injected Windows/Linux branches), but nothing in this session has run `spin site up`, `spin hosts apply`, or `spin doctor` against a real nginx/Apache install or a real Windows hosts file outside a test's temp directory. This remains open per the requirement below.
+
 **Target.** Every capability in this document behaves correctly on Linux, macOS, and Windows, not just builds for them.
 
 **Requirements.**
 
-- **MUST** run `go test`/`go vet`/`gofmt -l .` on `ubuntu-latest`, `macos-latest`, and `windows-latest` in CI once any OS-specific code lands (today's pure-Go scaffold does not yet need this, but [§3](#3-local-domains)–[§5](#5-php-runtime-management) will).
-- **MUST** isolate every OS-specific branch (resolver mechanism, hosts-file path, package manager, config directory location) behind a single small internal package per concern, so the platform-specific code is easy to find, test, and extend.
-- **MUST** verify each OS-specific feature on real hardware/VMs for that OS at least once before it is considered done — cross-compiled builds that have never executed are not a substitute for this.
+- **MUST** run `go test`/`go vet`/`gofmt -l .` on `ubuntu-latest`, `macos-latest`, and `windows-latest` in CI once any OS-specific code lands (today's pure-Go scaffold does not yet need this, but [§3](#3-local-domains)–[§5](#5-php-runtime-management) will). Done.
+- **MUST** isolate every OS-specific branch (resolver mechanism, hosts-file path, package manager, config directory location) behind a single small internal package per concern, so the platform-specific code is easy to find, test, and extend. Done for everything built so far.
+- **MUST** verify each OS-specific feature on real hardware/VMs for that OS at least once before it is considered done — cross-compiled builds that have never executed are not a substitute for this. Not done - see Missing above.
 
 **Priority** P1 · **Milestone** R.
 
@@ -261,9 +262,7 @@ Once concurrent multi-project support and drift detection land, `scripts/setup-n
 
 Items already identified elsewhere that must not be dropped.
 
-- **`yeoblyv/spin` GitHub repository does not exist yet.** Two local commits (`feat: scaffold project`, `feat(cli): add init command for .env bootstrap`) are ready to push once created.
-- **Author email on those two commits still needs amending** to the project's current canonical address before the first push (local-only rewrite, safe pre-push; the local git config for future commits is already correct).
-- **`spin console`'s underlying changes are uncommitted** pending a green `go build`/`go vet`/`gofmt -l .`/`go test ./... -v` run — **MUST NOT** be committed before that gate is confirmed green, per this project's own commit-on-green-gate rule.
+- **`yeoblyv/spin` GitHub repository does not exist yet.** The local repository's history is clean and every commit is already under the project's canonical author identity - nothing needs amending before the first push, unlike a previous state of this document claimed.
 - **`bin/spider` deprecation timing** is intentionally not scheduled here: per Spider's own `UPGRADING.md` policy (deprecate in a minor release only once the replacement is available, remove in a major release), that step happens once `spin` reaches real feature parity ([§4](#4-web-server-orchestration) done, milestone **P** reached) — it is a Spider-repo decision, not a `spin`-repo one.
 - **Local-CA / TLS provisioning mechanism ([§3](#3-local-domains))** is stated as a direction but not yet designed in detail — needs its own short design pass (which OS trust-store APIs to use, certificate lifetime/rotation) before [§3](#3-local-domains) requirements are actionable.
 - **Docker's role stays fixed at "optional, non-core"** ([§9](#9-optional-services-layer)) — re-litigating this is out of scope unless the core native approach demonstrably fails on a platform.
