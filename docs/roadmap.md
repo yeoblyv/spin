@@ -59,7 +59,7 @@ Each area is described with four fields:
 | 1 | Environment bootstrap (`init`) | done | — | P |
 | 2 | Project registry | done | — | M |
 | 3 | Local domains | partial | P1 | M |
-| 4 | Web server orchestration | none | P1 | P |
+| 4 | Web server orchestration | partial | P1 | P |
 | 5 | PHP runtime management | none | P1 | M |
 | 6 | Interactive console | partial | P2 | P |
 | 7 | Developer experience | partial | P2 | M |
@@ -124,21 +124,21 @@ Each area is described with four fields:
 
 ## 4. Web server orchestration
 
-**Have.** `deploy/nginx/spider.conf.template`, `deploy/apache/spider.conf.template`, and `scripts/setup-nginx.sh`/`setup-apache.sh` on the Spider side — portable, placeholder-driven, but external to `spin`, one-shot, and single-project (they render and install one vhost and stop).
+**Have.** `internal/webserver`: the nginx and Apache templates embedded via `go:embed` (ported verbatim from `deploy/nginx/spider.conf.template` and `deploy/apache/spider.conf.template`, header comments updated to describe `spin` as the renderer instead of the shell scripts), `Render`, `Detect` (nginx before Apache, matching the scripts' own precedent), `ConfDir` (Homebrew vs system paths per OS), and `DetectPHPFPMSocket` (same live-socket heuristic the shell scripts used). `spin site up`/`spin site down` render, install, and remove one vhost file per site — for both nginx and Apache, deliberately simpler than `setup-apache.sh`'s original marker-append-to-`httpd-vhosts.conf` approach. Neither command reloads or restarts the web server itself; both print the exact command to do so, exactly like the scripts they replace never auto-restarted either.
 
-**Missing.** Any of this logic inside `spin` itself; start/stop/reload lifecycle management; concurrent multi-project vhost management; automatic port/socket allocation to avoid collisions between sites running at once.
+**Missing.** Automatic port/socket allocation across multiple *concurrently running* sites — today's `DetectPHPFPMSocket` finds the one already-running PHP-FPM, same single-project assumption the original scripts made; real concurrent multi-project allocation is still open, tracked against [§2](#2-project-registry)'s multi-project milestone. Drift detection (re-rendering when a vhost was hand-edited) is not implemented.
 
 **Target.** `spin` renders, installs, and manages the web server config for every registered project — the setup scripts are absorbed and retired.
 
 **Requirements.**
 
-- **MUST** port the template-rendering logic from `setup-nginx.sh`/`setup-apache.sh` into `spin` natively (same `{{PLACEHOLDER}}` templates, embedded via `go:embed` rather than shipped as separate shell scripts).
-- **MUST** detect the web server already installed (nginx vs Apache vs neither) the same way the shell scripts do today, and **MUST** fail with actionable install instructions rather than silently doing nothing when neither is present.
-- **MUST** allocate a free upstream PHP-FPM socket/port per project automatically so multiple sites can run concurrently without manual coordination — this is a direct requirement of the registry becoming multi-project ([§2](#2-project-registry)).
-- **MUST** provide `spin site up`/`spin site down` (or equivalent) to start/stop a project's web server + PHP-FPM pairing, and reload the web server config without a full restart where the underlying server supports it.
-- **SHOULD** detect drift (a project's rendered vhost no longer matches what the registry expects, e.g. edited by hand or by another tool) and offer to re-render rather than overwrite silently.
+- **MUST** port the template-rendering logic from `setup-nginx.sh`/`setup-apache.sh` into `spin` natively (same `{{PLACEHOLDER}}` templates, embedded via `go:embed` rather than shipped as separate shell scripts). Done.
+- **MUST** detect the web server already installed (nginx vs Apache vs neither) the same way the shell scripts do today, and **MUST** fail with actionable install instructions rather than silently doing nothing when neither is present. Done.
+- **MUST** allocate a free upstream PHP-FPM socket/port per project automatically so multiple sites can run concurrently without manual coordination — this is a direct requirement of the registry becoming multi-project ([§2](#2-project-registry)). Not started — see Missing above.
+- **MUST** provide `spin site up`/`spin site down` (or equivalent) to start/stop a project's web server + PHP-FPM pairing, and reload the web server config without a full restart where the underlying server supports it. Partially done: `up`/`down` manage the rendered vhost file; neither starts, stops, or reloads the web server or PHP-FPM process itself — both print the reload command instead, matching the scripts' own precedent of never restarting a system service automatically.
+- **SHOULD** detect drift (a project's rendered vhost no longer matches what the registry expects, e.g. edited by hand or by another tool) and offer to re-render rather than overwrite silently. Not started.
 
-Once this ships, `scripts/setup-nginx.sh` and `scripts/setup-apache.sh` in the Spider repo become candidates for the deprecation path already noted in their `# Temporary: superseded by spin once it ships.` comment.
+Once concurrent multi-project support and drift detection land, `scripts/setup-nginx.sh` and `scripts/setup-apache.sh` in the Spider repo become candidates for the deprecation path already noted in their `# Temporary: superseded by spin once it ships.` comment.
 
 **Priority** P1 · **Milestone** P.
 
