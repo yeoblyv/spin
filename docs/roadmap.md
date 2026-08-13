@@ -58,7 +58,7 @@ Each area is described with four fields:
 |---|---|---|---|---|
 | 1 | Environment bootstrap (`init`) | done | — | P |
 | 2 | Project registry | done | — | M |
-| 3 | Local domains | none | P1 | M |
+| 3 | Local domains | partial | P1 | M |
 | 4 | Web server orchestration | none | P1 | P |
 | 5 | PHP runtime management | none | P1 | M |
 | 6 | Interactive console | partial | P2 | P |
@@ -105,20 +105,20 @@ Each area is described with four fields:
 
 ## 3. Local domains
 
-**Have.** Nothing. The working pattern established during local nginx setup was a manually chosen `server_name` and, where needed, a manual `/etc/hosts` edit.
+**Have.** `spin site add` assigns `<name>.test` by default (overridable via `--domain`), stored on the registry entry. `internal/hosts` renders, upserts, and removes a `# spin:begin`/`# spin:end`-delimited block from any hosts file, touching nothing outside it. `spin hosts apply`/`spin hosts remove` write that block to `platform.HostsFilePath()` (`/etc/hosts` on Linux/macOS, `%WinDir%\System32\drivers\etc\hosts` on Windows, both overridable via `--hosts-file`), pointing every registered domain at `127.0.0.1`. A permission-denied write reports the exact next step (`sudo spin hosts apply`) instead of a bare OS error, satisfying the "state clearly why" requirement without the tool silently elevating itself.
 
-**Missing.** Any automated local-domain handling; a decision on the TLD convention (e.g. `.test`, per [RFC 2606][R5]'s reserved-for-testing space).
+**Missing.** The macOS per-TLD `/etc/resolver/` mechanism and a local DNS responder for it to point at; Linux `systemd-resolved` integration; locally-trusted TLS provisioning (local CA + per-site leaf certificate). None of these are designed in enough detail to implement yet — the CA/TLS mechanism in particular still needs the short design pass already flagged in [§12](#12-loose-ends) (trust-store APIs per OS, certificate lifetime/rotation) before it is actionable.
 
 **Target.** Adding a project to the registry gives it a working `https://<name>.test` (or configured TLD) address with no manual hosts-file or resolver editing.
 
 **Requirements.**
 
-- **MUST** default new sites to a reserved TLD (`.test`) per [RFC 2606][R5], overridable per project.
-- **MUST**, on macOS, install a per-TLD resolver file under `/etc/resolver/` pointed at a local DNS responder — this is the same mechanism Herd/Valet use and avoids editing `/etc/hosts` per site.
-- **MUST**, on Linux, either integrate with `systemd-resolved` (a stub domain pointed at a local responder) where present, or fall back to managed `/etc/hosts` entries with clearly delimited `# spin:begin`/`# spin:end` markers so `spin` only ever touches its own block.
-- **MUST**, on Windows (no per-domain resolver mechanism), manage `%WinDir%\System32\drivers\etc\hosts` with the same delimited-block approach.
-- **MUST** require elevated privileges only for the specific step that needs them (writing the resolver file or hosts block), and **MUST** state clearly, before prompting, why elevation is needed.
-- **SHOULD** provision locally-trusted TLS for each domain (a local CA installed once into the OS/browser trust store, then a leaf certificate per site) rather than serving local sites over plain HTTP.
+- **MUST** default new sites to a reserved TLD (`.test`) per [RFC 2606][R5], overridable per project. Done.
+- **MUST**, on macOS, install a per-TLD resolver file under `/etc/resolver/` pointed at a local DNS responder — this is the same mechanism Herd/Valet use and avoids editing `/etc/hosts` per site. Not started — no local DNS responder exists yet for it to point at; the hosts-file path below covers macOS in the meantime.
+- **MUST**, on Linux, either integrate with `systemd-resolved` (a stub domain pointed at a local responder) where present, or fall back to managed `/etc/hosts` entries with clearly delimited `# spin:begin`/`# spin:end` markers so `spin` only ever touches its own block. `systemd-resolved` integration not started; the delimited-hosts-file fallback is done and is the only path today, on every OS.
+- **MUST**, on Windows (no per-domain resolver mechanism), manage `%WinDir%\System32\drivers\etc\hosts` with the same delimited-block approach. Done.
+- **MUST** require elevated privileges only for the specific step that needs them (writing the resolver file or hosts block), and **MUST** state clearly, before prompting, why elevation is needed. Done for the hosts-block step: `spin` never self-elevates; a permission-denied write names the exact command to re-run with `sudo`/an elevated shell.
+- **SHOULD** provision locally-trusted TLS for each domain (a local CA installed once into the OS/browser trust store, then a leaf certificate per site) rather than serving local sites over plain HTTP. Not started - depends on the design pass noted in [§12](#12-loose-ends).
 
 **Priority** P1 · **Milestone** M.
 
