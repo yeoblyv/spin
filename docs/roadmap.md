@@ -194,17 +194,17 @@ Once concurrent multi-project support and drift detection land, `scripts/setup-n
 
 ## 8. Security & secrets
 
-**Have.** `APP_KEY` generation via `crypto/rand`, base64-encoded, matching Spider's own convention; `.env` written with `0o600` permissions; no secret value is ever logged to `stdout`/`stderr`.
+**Have.** `APP_KEY` generation via `crypto/rand`, base64-encoded, matching Spider's own convention; `.env` written with `0o600` permissions; no secret value is ever logged to `stdout`/`stderr` - audited across every command added since ([§2](#2-project-registry)–[§7](#7-developer-experience)): every `stdout`/`stderr` write was checked, and none prints an `APP_KEY`, credential, or other secret value, only the fact that one was generated or checked. `internal/registry`'s file carries `0o600` (`0o700` directory), matching the `.env` convention the first bullet below asks for. The registry only ever stores `Name`/`Path`/`Domain`/`PHPVersion`/timestamps - no secret-shaped field exists to leak. Rendered web-server config and the hosts file are written with standard, non-owner-only permissions (`0o644`) deliberately: neither is secret, and both must stay readable by the web server / OS resolver that consumes them.
 
-**Missing.** A documented policy for the registry file and any rendered web-server config (both may contain filesystem paths but never secrets by design — this **MUST** stay true as new fields are added); a story for locally-trusted TLS material ([§3](#3-local-domains)) that avoids storing a CA private key world-readable.
+**Missing.** A local CA private key does not yet exist, since TLS provisioning ([§3](#3-local-domains)) is not built - the second and third requirements below have nothing to apply to yet.
 
 **Target.** Nothing `spin` writes to disk is ever more permissive than it needs to be, and nothing it prints ever includes a secret.
 
 **Requirements.**
 
-- **MUST** write the registry file and any local CA/certificate private key with owner-only permissions (`0o600` files, `0o700` directories), matching the existing `.env` convention.
-- **MUST** never write an `APP_KEY`, database credential, or other secret value to `stdout`, `stderr`, or any log file `spin` produces.
-- **MUST** treat the local CA's private key (once TLS provisioning exists, [§3](#3-local-domains)) as sensitive: generated once per machine, never transmitted, never included in diagnostics output (`spin doctor` **MUST** report that a CA exists, never its contents).
+- **MUST** write the registry file and any local CA/certificate private key with owner-only permissions (`0o600` files, `0o700` directories), matching the existing `.env` convention. Done for the registry file; the CA private key doesn't exist yet ([§3](#3-local-domains)).
+- **MUST** never write an `APP_KEY`, database credential, or other secret value to `stdout`, `stderr`, or any log file `spin` produces. Done and audited across every command.
+- **MUST** treat the local CA's private key (once TLS provisioning exists, [§3](#3-local-domains)) as sensitive: generated once per machine, never transmitted, never included in diagnostics output (`spin doctor` **MUST** report that a CA exists, never its contents). Not yet applicable - no CA exists; `spin doctor`'s existing checks already follow this pattern (report a fact, never a value) and the CA check should too when it lands.
 
 **Priority** P1 · **Milestone** P.
 
