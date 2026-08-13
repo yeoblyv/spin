@@ -57,7 +57,7 @@ Each area is described with four fields:
 | # | Area | Status | Priority | Milestone |
 |---|---|---|---|---|
 | 1 | Environment bootstrap (`init`) | done | — | P |
-| 2 | Project registry | none | P1 | M |
+| 2 | Project registry | done | — | M |
 | 3 | Local domains | none | P1 | M |
 | 4 | Web server orchestration | none | P1 | P |
 | 5 | PHP runtime management | none | P1 | M |
@@ -81,27 +81,27 @@ Each area is described with four fields:
 
 **Requirements.**
 
-- **SHOULD** call into the registry ([§2](#2-project-registry)) after a successful bootstrap, so `spin init` is sufficient to both prepare and register a project in one step.
-- **MUST** keep working with no registry present at all (bare `.env`/`APP_KEY` bootstrap stays a valid standalone use case, e.g. in CI).
+- **SHOULD** call into the registry ([§2](#2-project-registry)) after a successful bootstrap, so `spin init` is sufficient to both prepare and register a project in one step. Done: `registerProject` in `internal/cli/init.go` registers the target directory when it looks like a Spider project and isn't already known; any failure here is silently non-fatal.
+- **MUST** keep working with no registry present at all (bare `.env`/`APP_KEY` bootstrap stays a valid standalone use case, e.g. in CI). Done: registration failures never affect `init`'s own exit code.
 
 **Priority** — · **Milestone** P.
 
 ## 2. Project registry
 
-**Have.** Nothing. Every command that needs a project directory takes it via a per-invocation `--dir` flag; there is no memory between runs.
+**Have.** `internal/registry`: a JSON registry file (`Entry{Name, Path, Domain, PHPVersion, CreatedAt, LastUsedAt}`), loaded/saved atomically with owner-only permissions (`0o600` file, `0o700` directory). `internal/platform.ConfigDir` resolves `$XDG_CONFIG_HOME/spin` (or `~/.config/spin`) on Linux/macOS and `%APPDATA%\spin` on Windows. `spin site add [path]`, `spin site list`, `spin site remove <name>`, `spin site use <name>` in `internal/cli/site.go`. `Registry.ResolveSite` implements the `--site` → cwd → default resolution order with a clear error otherwise. `registry.Stale` re-validates a path against `IsSpiderProject` at read time rather than trusting the stored entry.
 
-**Missing.** A persistent list of known Spider projects (path, chosen local domain, PHP version, web server, last-used state) and commands to manage it.
+**Missing.** Domain/PHP-version/port fields exist on `Entry` but nothing populates them yet — that lands with [§3](#3-local-domains)–[§5](#5-php-runtime-management). No command besides `init` consults the registry yet ([§6](#6-interactive-console) wires the console in next).
 
 **Target.** `spin` knows about every Spider project on the machine without being told the path each time; other commands default to "the project for the current directory" or "the project selected via `spin use`" instead of requiring `--dir`.
 
 **Requirements.**
 
-- **MUST** provide `spin site add [path]`, `spin site list`, `spin site remove <name>`, and `spin site use <name>` (or equivalent verbs), backed by a single config file (e.g. `~/.config/spin/registry.json` on Linux/macOS, `%APPDATA%\spin\registry.json` on Windows — path resolution follows [§11](#11-cross-platform-compatibility)).
-- **MUST** resolve "current project" in this order: an explicit `--site`/`--dir` flag, then the current working directory if it is a known or bootstrappable Spider project, then the `use`-selected default; commands **MUST** fail with a clear error rather than guess when none apply.
-- **MUST** validate a registered path still looks like a Spider project (has `composer.json` naming `yeoblyv/spider` or a `bootstrap.php`) at read time, and mark stale entries rather than silently erroring.
-- **SHOULD** store per-project metadata needed by [§3](#3-local-domains)–[§5](#5-php-runtime-management) (domain, PHP version, assigned ports/sockets) in the same registry entry, so those areas have one source of truth.
+- **MUST** provide `spin site add [path]`, `spin site list`, `spin site remove <name>`, and `spin site use <name>` (or equivalent verbs), backed by a single config file (e.g. `~/.config/spin/registry.json` on Linux/macOS, `%APPDATA%\spin\registry.json` on Windows — path resolution follows [§11](#11-cross-platform-compatibility)). Done.
+- **MUST** resolve "current project" in this order: an explicit `--site`/`--dir` flag, then the current working directory if it is a known or bootstrappable Spider project, then the `use`-selected default; commands **MUST** fail with a clear error rather than guess when none apply. Done via `Registry.ResolveSite`, not yet consumed by any command other than `init`'s registration step.
+- **MUST** validate a registered path still looks like a Spider project (has `composer.json` naming the framework package, or a `bootstrap.php`) at read time, and mark stale entries rather than silently erroring. Done: `registry.IsSpiderProject` checks `bootstrap.php` first, then `composer.json`'s `"name"` field against Spider's actual published package name (`spider/framework` — the literal `yeoblyv/spider` this requirement originally named does not match the real `composer.json`); `spin site list` marks non-matching entries `stale` instead of failing.
+- **SHOULD** store per-project metadata needed by [§3](#3-local-domains)–[§5](#5-php-runtime-management) (domain, PHP version, assigned ports/sockets) in the same registry entry, so those areas have one source of truth. Fields exist on `Entry`; population lands with those sections.
 
-**Priority** P1 · **Milestone** M.
+**Priority** — · **Milestone** M.
 
 ## 3. Local domains
 
