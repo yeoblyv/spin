@@ -28,13 +28,57 @@ func init() {
 func runConsole(args []string, stdout, stderr io.Writer, version, commit string) int {
 	fs := flag.NewFlagSet("console", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	dir := fs.String("dir", ".", "Spider project directory")
+	dir := fs.String("dir", ".", "Spider project directory (bypasses the site registry entirely)")
+	site := fs.String("site", "", "registered site name (defaults to the current directory or the default site)")
 	if err := fs.Parse(args); err != nil {
 		return exitUsage
 	}
 
-	printBanner(stdout, version, detectSpiderVersion(*dir))
+	targetDir := *dir
+	if !explicitlySet(fs, "dir") {
+		if resolved, ok := resolveConsoleTarget(*site); ok {
+			targetDir = resolved
+		}
+	}
+
+	printBanner(stdout, version, detectSpiderVersion(targetDir))
 	return repl(os.Stdin, stdout, stderr, version, commit)
+}
+
+// explicitlySet reports whether name was passed on the command line, as
+// opposed to holding its zero-value default.
+func explicitlySet(fs *flag.FlagSet, name string) bool {
+	set := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			set = true
+		}
+	})
+	return set
+}
+
+// resolveConsoleTarget resolves the console's target project through the
+// same --site/cwd/default rules every other registry-aware command uses
+// (internal/registry.Registry.ResolveSite), instead of requiring --dir.
+// Any failure - no registry file yet, nothing resolves - falls back to the
+// caller's own default ("."), since a registry-less console remains a
+// valid standalone use case.
+func resolveConsoleTarget(site string) (string, bool) {
+	r, _, err := openRegistry()
+	if err != nil {
+		return "", false
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = ""
+	}
+
+	entry, err := r.ResolveSite(site, cwd)
+	if err != nil {
+		return "", false
+	}
+	return entry.Path, true
 }
 
 // printBanner writes the shell's startup banner, in the style of a MySQL or

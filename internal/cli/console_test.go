@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"flag"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -134,6 +135,51 @@ func TestDetectSpiderVersion_unknownWhenNothingMatches(t *testing.T) {
 
 	if got := detectSpiderVersion(dir); got != "unknown" {
 		t.Errorf("detectSpiderVersion() = %q, want %q", got, "unknown")
+	}
+}
+
+func TestExplicitlySet(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	dir := fs.String("dir", ".", "")
+	if err := fs.Parse([]string{"--dir", "/tmp"}); err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	_ = dir
+
+	if !explicitlySet(fs, "dir") {
+		t.Error("explicitlySet(dir) = false, want true after passing --dir")
+	}
+	if explicitlySet(fs, "site") {
+		t.Error("explicitlySet(site) = true, want false for an unpassed flag")
+	}
+}
+
+func TestResolveConsoleTargetUsesRegistry(t *testing.T) {
+	isolateRegistry(t)
+	dir := newSpiderProjectDir(t, "blog")
+
+	var stdout, stderr strings.Builder
+	if code := runSite([]string{"add", "--name", "blog", dir}, &stdout, &stderr, "1.2.3", "abc123"); code != exitOK {
+		t.Fatalf("site add code = %d, want %d; stderr = %q", code, exitOK, stderr.String())
+	}
+	if code := runSite([]string{"use", "blog"}, &stdout, &stderr, "1.2.3", "abc123"); code != exitOK {
+		t.Fatalf("site use code = %d, want %d; stderr = %q", code, exitOK, stderr.String())
+	}
+
+	got, ok := resolveConsoleTarget("")
+	if !ok {
+		t.Fatal("resolveConsoleTarget() ok = false, want true with a default site set")
+	}
+	if got != dir {
+		t.Errorf("resolveConsoleTarget() = %q, want %q", got, dir)
+	}
+}
+
+func TestResolveConsoleTargetFallsBackWhenNothingResolves(t *testing.T) {
+	isolateRegistry(t)
+
+	if _, ok := resolveConsoleTarget(""); ok {
+		t.Error("resolveConsoleTarget() ok = true, want false with an empty registry")
 	}
 }
 
