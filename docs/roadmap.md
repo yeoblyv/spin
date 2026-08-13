@@ -176,19 +176,19 @@ Once concurrent multi-project support and drift detection land, `scripts/setup-n
 
 ## 7. Developer experience
 
-**Have.** `--version`/`--help`/`version`/`help` at the top level; per-command `-h` via the standard `flag` package; consistent, testable `stdout`/`stderr` separation and exit codes (`0`/`1`/`2`) throughout.
+**Have.** `--version`/`--help`/`version`/`help` at the top level; per-command `-h` via the standard `flag` package; consistent, testable `stdout`/`stderr` separation and exit codes (`0`/`1`/`2`) throughout. `spin doctor [--site name] [--hosts-file path]`: runs the site-resolution, web-server-detection, PHP-constraint, and domain-in-hosts checks built for [§2](#2-project-registry)–[§5](#5-php-runtime-management) in one pass, printing `[PASS]`/`[FAIL]` per check and the exact command to run on failure; exits non-zero if anything failed. A failed site-resolution check is terminal, since no later check has a path to check without it.
 
-**Missing.** A diagnostic/health-check command; shell completions; update notifications; log tailing for a running project's web server/PHP-FPM.
+**Missing.** Shell completions; update notifications; log tailing for a running project's web server/PHP-FPM.
 
 **Target.** `spin` is pleasant to live in day to day: it tells you what's wrong in one command, updates itself without ceremony, and gets out of your way in the shell.
 
 **Requirements.**
 
-- **MUST** provide `spin doctor` (or equivalent): checks the current project's registry entry, web server presence, PHP version match, and local-domain resolution in one pass, and reports each with a clear pass/fail and, on failure, the exact next command to run.
-- **SHOULD** provide shell completion scripts (bash/zsh/fish, PowerShell) generated from the command registry so they can never drift out of sync with the actual command set.
-- **SHOULD** check the latest published release against the running binary's own `--version` output and print a one-line notice (never auto-update without being asked).
-- **SHOULD** provide `spin logs <site>` to tail a project's web server and PHP-FPM error logs together, prefixed by source.
-- **MUST** keep every error message actionable: state what failed and what command (if any) fixes it, following the pattern already used in `init.go`'s error messages.
+- **MUST** provide `spin doctor` (or equivalent): checks the current project's registry entry, web server presence, PHP version match, and local-domain resolution in one pass, and reports each with a clear pass/fail and, on failure, the exact next command to run. Done.
+- **SHOULD** provide shell completion scripts (bash/zsh/fish, PowerShell) generated from the command registry so they can never drift out of sync with the actual command set. Not started.
+- **SHOULD** check the latest published release against the running binary's own `--version` output and print a one-line notice (never auto-update without being asked). Not started - meaningless before a first tagged release exists ([§10](#10-distribution--release-engineering)).
+- **SHOULD** provide `spin logs <site>` to tail a project's web server and PHP-FPM error logs together, prefixed by source. Not started.
+- **MUST** keep every error message actionable: state what failed and what command (if any) fixes it, following the pattern already used in `init.go`'s error messages. Done, extended to `spin doctor`'s per-check `fix` field.
 
 **Priority** P2 · **Milestone** M.
 
