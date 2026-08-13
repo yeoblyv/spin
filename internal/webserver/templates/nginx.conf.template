@@ -1,0 +1,45 @@
+# Spider - nginx server block template.
+#
+# Rendered by spin ("spin site up"); {{...}} placeholders are filled in at
+# render time. Machine-specific values (paths, sockets, ports) never live
+# in version control - only the rendered instance does, on each machine.
+
+server {
+    listen {{HTTP_PORT}};
+    server_name {{SERVER_NAME}};
+
+    # Public/ is the document root: the front controller (Public/index.php)
+    # and static assets live here. Everything else in the project - Spider/,
+    # Private/, .env, .git - is one level up and structurally unreachable.
+    root {{PROJECT_ROOT}}/Public;
+    index index.php;
+    charset utf-8;
+
+    access_log {{ACCESS_LOG}};
+    error_log  {{ERROR_LOG}};
+
+    # Dotfiles (.env, .git, .htaccess, ...) are never web-reachable
+    location ~ /\.(?!well-known/) {
+        return 403;
+    }
+
+    # Files that actually exist in Public/ are served directly; anything
+    # else falls through to the front controller with its query string intact
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # The only PHP file ever executed - matched by exact path, which nginx
+    # always prioritizes over the regex block below
+    location = /index.php {
+        include fastcgi_params;
+        fastcgi_pass {{FASTCGI_PASS}};
+        fastcgi_param SCRIPT_FILENAME $document_root/index.php;
+    }
+
+    # Every other .php path (there shouldn't be any) is refused rather than
+    # served or executed
+    location ~ \.php$ {
+        return 404;
+    }
+}

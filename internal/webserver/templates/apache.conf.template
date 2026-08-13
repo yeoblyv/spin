@@ -1,0 +1,20 @@
+# Spider - Apache virtual host template.
+#
+# Rendered by spin ("spin site up"); {{...}} placeholders are filled in at
+# render time. Request routing itself lives entirely in Public/.htaccess,
+# already committed and free of absolute paths; this file only wires up
+# what Apache needs before .htaccess can take over: the document root and
+# permission to read it.
+
+<VirtualHost *:{{HTTP_PORT}}>
+    ServerName {{SERVER_NAME}}
+    DocumentRoot {{PROJECT_ROOT}}/Public
+
+    <Directory "{{PROJECT_ROOT}}/Public">
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    ErrorLog {{ERROR_LOG}}
+    CustomLog {{ACCESS_LOG}} combined
+</VirtualHost>
