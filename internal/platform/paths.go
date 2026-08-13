@@ -39,3 +39,28 @@ func configDir(goos string, getenv func(string) string, homeDir func() (string, 
 	}
 	return filepath.Join(home, ".config", "spin"), nil
 }
+
+// HostsFilePath returns the OS hosts file spin manages local-domain entries
+// in: /etc/hosts on Linux and macOS, %WinDir%\System32\drivers\etc\hosts on
+// Windows.
+func HostsFilePath() string {
+	return hostsFilePath(runtime.GOOS, os.Getenv)
+}
+
+// hostsFilePath is HostsFilePath's testable core: goos and getenv are
+// injected so both branches are exercised in unit tests regardless of the
+// host running them.
+func hostsFilePath(goos string, getenv func(string) string) string {
+	if goos != "windows" {
+		return "/etc/hosts"
+	}
+
+	winDir := getenv("WINDIR")
+	if winDir == "" {
+		winDir = getenv("SystemRoot")
+	}
+	if winDir == "" {
+		winDir = `C:\Windows`
+	}
+	return filepath.Join(winDir, "System32", "drivers", "etc", "hosts")
+}

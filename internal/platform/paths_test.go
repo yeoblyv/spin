@@ -82,3 +82,53 @@ func TestConfigDirUnixPropagatesHomeDirError(t *testing.T) {
 		t.Error("configDir() error = nil, want the propagated homeDir error")
 	}
 }
+
+func TestHostsFilePathUnix(t *testing.T) {
+	getenv := func(string) string { return "" }
+
+	for _, goos := range []string{"linux", "darwin"} {
+		if got, want := hostsFilePath(goos, getenv), "/etc/hosts"; got != want {
+			t.Errorf("hostsFilePath(%q) = %q, want %q", goos, got, want)
+		}
+	}
+}
+
+func TestHostsFilePathWindowsUsesWinDir(t *testing.T) {
+	getenv := func(key string) string {
+		if key == "WINDIR" {
+			return `C:\Windows`
+		}
+		return ""
+	}
+
+	got := hostsFilePath("windows", getenv)
+	want := filepath.Join(`C:\Windows`, "System32", "drivers", "etc", "hosts")
+	if got != want {
+		t.Errorf("hostsFilePath() = %q, want %q", got, want)
+	}
+}
+
+func TestHostsFilePathWindowsFallsBackToSystemRoot(t *testing.T) {
+	getenv := func(key string) string {
+		if key == "SystemRoot" {
+			return `C:\WINNT`
+		}
+		return ""
+	}
+
+	got := hostsFilePath("windows", getenv)
+	want := filepath.Join(`C:\WINNT`, "System32", "drivers", "etc", "hosts")
+	if got != want {
+		t.Errorf("hostsFilePath() = %q, want %q", got, want)
+	}
+}
+
+func TestHostsFilePathWindowsFallsBackToDefault(t *testing.T) {
+	getenv := func(string) string { return "" }
+
+	got := hostsFilePath("windows", getenv)
+	want := filepath.Join(`C:\Windows`, "System32", "drivers", "etc", "hosts")
+	if got != want {
+		t.Errorf("hostsFilePath() = %q, want %q", got, want)
+	}
+}
