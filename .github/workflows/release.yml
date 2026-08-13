@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Determine version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          ext=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then ext=".exe"; fi
+          mkdir -p dist
+          go build -trimpath \
+            -ldflags "-X main.version=${{ steps.version.outputs.version }} -X main.commit=${{ github.sha }}" \
+            -o "dist/spin-${{ matrix.goos }}-${{ matrix.goarch }}${ext}" \
+            ./cmd/spin
+
+      - name: Verify version output
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: |
+          got="$(dist/spin-linux-amd64 --version)"
+          want="spin ${{ steps.version.outputs.version }} (${{ github.sha }})"
+          if [ "${got}" != "${want}" ]; then
+            echo "version mismatch: built binary reports '${got}', tag expects '${want}'"
+            exit 1
+          fi
+
+      - name: Checksum
+        run: |
+          cd dist
+          sha256sum * > "spin-${{ matrix.goos }}-${{ matrix.goarch }}.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spin-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
