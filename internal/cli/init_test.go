@@ -70,6 +70,47 @@ func TestRunInit_leavesExistingAppKeyUntouched(t *testing.T) {
 	}
 }
 
+func TestRunInit_registersProjectInSiteRegistry(t *testing.T) {
+	isolateRegistry(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".env.example"), "APP_KEY=\n")
+	writeFile(t, filepath.Join(dir, "bootstrap.php"), "<?php\n")
+
+	var stdout, stderr strings.Builder
+	code := runInit([]string{"--dir", dir}, &stdout, &stderr, "1.2.3", "abc123")
+
+	if code != exitOK {
+		t.Fatalf("runInit() code = %d, want %d; stderr = %q", code, exitOK, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "registered project") {
+		t.Errorf("stdout = %q, want it to report the project was registered", stdout.String())
+	}
+
+	var listOut, listErr strings.Builder
+	if code := runSite([]string{"list"}, &listOut, &listErr, "1.2.3", "abc123"); code != exitOK {
+		t.Fatalf("site list code = %d, want %d; stderr = %q", code, exitOK, listErr.String())
+	}
+	if !strings.Contains(listOut.String(), dir) {
+		t.Errorf("site list output = %q, want it to include %q", listOut.String(), dir)
+	}
+}
+
+func TestRunInit_doesNotRegisterNonSpiderDirectory(t *testing.T) {
+	isolateRegistry(t)
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, ".env.example"), "APP_KEY=\n")
+
+	var stdout, stderr strings.Builder
+	code := runInit([]string{"--dir", dir}, &stdout, &stderr, "1.2.3", "abc123")
+
+	if code != exitOK {
+		t.Fatalf("runInit() code = %d, want %d; stderr = %q", code, exitOK, stderr.String())
+	}
+	if strings.Contains(stdout.String(), "registered project") {
+		t.Errorf("stdout = %q, want no registration message for a non-Spider directory", stdout.String())
+	}
+}
+
 func TestRunInit_errorsWithoutEnvExample(t *testing.T) {
 	dir := t.TempDir()
 

@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	reg "github.com/yeoblyv/spin/internal/registry"
 )
 
 func init() {
@@ -46,7 +48,45 @@ func runInit(args []string, stdout, stderr io.Writer, version, commit string) in
 		return exitError
 	}
 
+	registerProject(*dir, stdout)
+
 	return exitOK
+}
+
+// registerProject adds dir to the site registry when it looks like a
+// Spider project and isn't already known, so a single "spin init" both
+// prepares and registers a project. Every failure here is silently
+// non-fatal: init's own job already succeeded, and a bare .env/APP_KEY
+// bootstrap with no registry present at all remains a valid standalone use
+// case (e.g. in CI).
+func registerProject(dir string, stdout io.Writer) {
+	absDir, err := filepath.Abs(dir)
+	if err != nil || !reg.IsSpiderProject(absDir) {
+		return
+	}
+
+	path, err := registryPath()
+	if err != nil {
+		return
+	}
+
+	r, err := reg.Load(path)
+	if err != nil {
+		return
+	}
+	if _, exists := r.FindByPath(absDir); exists {
+		return
+	}
+
+	entry, err := r.Add("", absDir)
+	if err != nil {
+		return
+	}
+	if err := r.Save(path); err != nil {
+		return
+	}
+
+	fmt.Fprintf(stdout, "registered project %q in the site registry\n", entry.Name)
 }
 
 // ensureEnvFile copies examplePath to envPath when envPath does not exist
