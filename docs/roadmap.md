@@ -60,7 +60,7 @@ Each area is described with four fields:
 | 2 | Project registry | done | — | M |
 | 3 | Local domains | partial | P1 | M |
 | 4 | Web server orchestration | partial | P1 | P |
-| 5 | PHP runtime management | none | P1 | M |
+| 5 | PHP runtime management | partial | P1 | M |
 | 6 | Interactive console | partial | P2 | P |
 | 7 | Developer experience | partial | P2 | M |
 | 8 | Security & secrets | partial | P1 | P |
@@ -144,17 +144,17 @@ Once concurrent multi-project support and drift detection land, `scripts/setup-n
 
 ## 5. PHP runtime management
 
-**Have.** Nothing. The current workflow assumes a single, already-installed, already-running PHP-FPM that `setup-nginx.sh` merely locates (`$(brew --prefix)/var/run/php-fpm.sock` and equivalents).
+**Have.** `internal/phpversion`: a Composer-constraint parser and evaluator (comparators, `^`/`~`, comma/`||` combinations, bare-version prefix matching) covering the syntax PHP version requirements actually use in practice; `ReadComposerConstraint` reads the target project's `composer.json`; `DetectInstalled` runs the `php` interpreter on `PATH` (`php -r 'echo PHP_VERSION;'`) behind an injectable environment. `spin php [--site name | --dir path]` reports a clear pass/fail rather than a silent fallback.
 
-**Missing.** Any handling of a project needing a specific PHP version, or of two projects on the machine needing different versions concurrently.
+**Missing.** Per-version PHP-FPM pool management for concurrent projects on different PHP versions; installing a missing version.
 
 **Target.** `spin` reads a project's PHP version constraint (from `composer.json`) and ensures a matching PHP-FPM is running for it, isolated from other projects' versions.
 
 **Requirements.**
 
-- **MUST** read the `php` constraint from the project's `composer.json` and surface a clear error (not a silent fallback) when no installed PHP satisfies it.
-- **SHOULD** manage per-version PHP-FPM pools so two registered projects requiring different PHP versions can run at the same time, each behind its own socket.
-- **MAY** offer to install a missing PHP version via the platform's package manager (Homebrew on macOS, the system package manager on Linux) rather than requiring the user to do so manually first — this is explicitly a "nice to have," not a blocker, since it touches system package state and **MUST** always ask before installing anything.
+- **MUST** read the `php` constraint from the project's `composer.json` and surface a clear error (not a silent fallback) when no installed PHP satisfies it. Done.
+- **SHOULD** manage per-version PHP-FPM pools so two registered projects requiring different PHP versions can run at the same time, each behind its own socket. Not started - depends on the same concurrent-multi-project allocation work noted in [§4](#4-web-server-orchestration).
+- **MAY** offer to install a missing PHP version via the platform's package manager (Homebrew on macOS, the system package manager on Linux) rather than requiring the user to do so manually first — this is explicitly a "nice to have," not a blocker, since it touches system package state and **MUST** always ask before installing anything. Not started.
 
 **Priority** P1 · **Milestone** M.
 
