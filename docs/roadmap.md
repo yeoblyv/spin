@@ -160,17 +160,17 @@ Once concurrent multi-project support and drift detection land, `scripts/setup-n
 
 ## 6. Interactive console
 
-**Have.** `spin console`: a `mysql`/`asterisk -r`-style REPL: banner reporting both `spin`'s and the target Spider project's version (detected from git tag, then `composer.json`, then `CHANGELOG.md`), each line dispatched through the same `Run` path as a top-level invocation, colored `}}{{ ` prompt matching the Spider logo's four gradient stops.
+**Have.** `spin console`: a `mysql`/`asterisk -r`-style REPL: banner reporting both `spin`'s and the target Spider project's version (detected from git tag, then `composer.json`, then `CHANGELOG.md`), each line dispatched through the same `Run` path as a top-level invocation, colored `}}{{ ` prompt matching the Spider logo's four gradient stops. `--site`/cwd/default resolution via the registry (`resolveConsoleTarget`), falling back to `--dir`'s previous "." default when nothing resolves - an explicit `--dir` still bypasses the registry entirely.
 
-**Missing.** Registry awareness (currently takes `--dir` like every other command); command history/line-editing (a bare `bufio.Scanner` today, no arrow-key recall); tab completion of registered project names or subcommands.
+**Missing.** Command history/line-editing (a bare `bufio.Scanner` today, no arrow-key recall); tab completion of registered project names or subcommands.
 
 **Target.** The console is the primary interactive entry point into a multi-project `spin`: `spin console` alone drops into the shell for the current/default project, and commands typed inside it can address any registered project.
 
 **Requirements.**
 
-- **MUST** resolve its target project through the same rules as every other command ([§2](#2-project-registry)) once the registry exists, instead of only `--dir`.
-- **SHOULD** add line-editing and history (e.g. via a small readline-equivalent library) so the shell is comfortable for repeated use, not just scriptable input.
-- **MAY** add tab completion for subcommands and registered project names.
+- **MUST** resolve its target project through the same rules as every other command ([§2](#2-project-registry)) once the registry exists, instead of only `--dir`. Done.
+- **SHOULD** add line-editing and history (e.g. via a small readline-equivalent library) so the shell is comfortable for repeated use, not just scriptable input. Not started - pulling in a readline-equivalent library is a new dependency, which needs the owner's sign-off before it lands.
+- **MAY** add tab completion for subcommands and registered project names. Not started.
 
 **Priority** P2 · **Milestone** P.
 
