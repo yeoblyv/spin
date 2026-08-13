@@ -200,7 +200,13 @@ func isPrivilegedPort(port string) bool {
 // domainInHosts reports whether domain already appears anywhere in the OS
 // hosts file - a best-effort reminder, not a guarantee it resolves.
 func domainInHosts(domain string) bool {
-	data, err := os.ReadFile(platform.HostsFilePath())
+	return domainInHostsFile(domain, platform.HostsFilePath())
+}
+
+// domainInHostsFile is domainInHosts's testable core: path is injected so
+// tests never depend on the real machine's hosts file.
+func domainInHostsFile(domain, path string) bool {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
 	}
