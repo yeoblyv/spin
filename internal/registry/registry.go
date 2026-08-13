@@ -156,6 +156,17 @@ func (r *Registry) Remove(name string) error {
 	return nil
 }
 
+// SetDomain sets the local domain assigned to the site named name.
+func (r *Registry) SetDomain(name, domain string) error {
+	e, ok := r.data.Sites[name]
+	if !ok {
+		return fmt.Errorf("no site named %q is registered", name)
+	}
+	e.Domain = domain
+	r.data.Sites[name] = e
+	return nil
+}
+
 // Use selects name as the default site returned by Default when no other
 // resolution rule in ResolveSite applies.
 func (r *Registry) Use(name string) error {

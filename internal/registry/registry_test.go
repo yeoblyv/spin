@@ -104,6 +104,28 @@ func TestAddRejectsMissingPath(t *testing.T) {
 	}
 }
 
+func TestSetDomain(t *testing.T) {
+	dir := newSpiderProject(t, "blog")
+	r, _ := Load(filepath.Join(t.TempDir(), "registry.json"))
+	mustAdd(t, r, "blog", dir)
+
+	if err := r.SetDomain("blog", "blog.test"); err != nil {
+		t.Fatalf("SetDomain() error = %v", err)
+	}
+
+	entries := r.List()
+	if len(entries) != 1 || entries[0].Domain != "blog.test" {
+		t.Fatalf("List() = %+v, want a single entry with Domain %q", entries, "blog.test")
+	}
+}
+
+func TestSetDomainUnknownNameErrors(t *testing.T) {
+	r, _ := Load(filepath.Join(t.TempDir(), "registry.json"))
+	if err := r.SetDomain("ghost", "ghost.test"); err == nil {
+		t.Error("SetDomain() error = nil, want an error for an unregistered name")
+	}
+}
+
 func TestRemoveClearsDefault(t *testing.T) {
 	dir := newSpiderProject(t, "blog")
 	r, _ := Load(filepath.Join(t.TempDir(), "registry.json"))
