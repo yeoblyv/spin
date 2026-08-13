@@ -23,10 +23,11 @@ func init() {
 	})
 }
 
-// runSite dispatches to the site subcommands: add, list, remove, use.
+// runSite dispatches to the site subcommands: add, list, remove, use, up,
+// down.
 func runSite(args []string, stdout, stderr io.Writer, version, commit string) int {
 	if len(args) == 0 {
-		fmt.Fprintln(stderr, "spin: site: expected a subcommand (add, list, remove, use)")
+		fmt.Fprintln(stderr, "spin: site: expected a subcommand (add, list, remove, use, up, down)")
 		return exitUsage
 	}
 
@@ -40,6 +41,10 @@ func runSite(args []string, stdout, stderr io.Writer, version, commit string) in
 		return runSiteRemove(rest, stdout, stderr)
 	case "use":
 		return runSiteUse(rest, stdout, stderr)
+	case "up":
+		return runSiteUp(rest, stdout, stderr)
+	case "down":
+		return runSiteDown(rest, stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "spin: site: unknown subcommand %q\n", sub)
 		return exitUsage
