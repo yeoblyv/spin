@@ -2,6 +2,7 @@ package webserver
 
 import (
 	"errors"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -158,11 +159,16 @@ func TestConfDirPrefersBrewPrefix(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ConfDir() error = %v", err)
 	}
-	if confDir != "/opt/homebrew/etc/nginx/servers" {
-		t.Errorf("confDir = %q, want the Homebrew nginx servers directory", confDir)
+	// Built via filepath.Join, like the production code, rather than a
+	// forward-slash literal - ConfDir joins with the native separator, so
+	// a hardcoded "/opt/homebrew/etc/..." literal only matches on Unix.
+	wantConfDir := filepath.Join("/opt/homebrew", "etc", "nginx", "servers")
+	wantLogDir := filepath.Join("/opt/homebrew", "var", "log", "nginx")
+	if confDir != wantConfDir {
+		t.Errorf("confDir = %q, want %q", confDir, wantConfDir)
 	}
-	if logDir != "/opt/homebrew/var/log/nginx" {
-		t.Errorf("logDir = %q, want the Homebrew nginx log directory", logDir)
+	if logDir != wantLogDir {
+		t.Errorf("logDir = %q, want %q", logDir, wantLogDir)
 	}
 }
 
@@ -191,10 +197,14 @@ func TestConfDirErrorsWhenNothingFound(t *testing.T) {
 func TestDetectPHPFPMSocketPrefersLiveBrewSocket(t *testing.T) {
 	env := fakeEnvironment()
 	env.BrewPrefix = func() (string, bool) { return "/opt/homebrew", true }
-	env.IsSocket = func(path string) bool { return path == "/opt/homebrew/var/run/php-fpm.sock" }
+	// DetectPHPFPMSocket joins the candidate with filepath.Join internally,
+	// so the fake must match on the same native-separator path, not a
+	// forward-slash literal.
+	sockPath := filepath.Join("/opt/homebrew", "var", "run", "php-fpm.sock")
+	env.IsSocket = func(path string) bool { return path == sockPath }
 
 	got := DetectPHPFPMSocket(env)
-	want := "unix:/opt/homebrew/var/run/php-fpm.sock"
+	want := "unix:" + sockPath
 	if got != want {
 		t.Errorf("DetectPHPFPMSocket() = %q, want %q", got, want)
 	}
